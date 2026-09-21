@@ -1,75 +1,87 @@
-# Implicit river bathymetry
+# Implicit PDE inversion
 
-**Infer the shape of a riverbed from the motion of the water surface, by
-training a neural network to obey the flow physics.**
+**Recover an unknown coefficient field of a PDE from sparse, indirect
+observations — by representing the field as a coordinate network and training
+it so the physics it implies reproduces what was actually measured.**
 
-![sweeping 26 cross sections of the Buffalo River](animations/river_scan.gif)
+![sweeping 26 cross sections](animations/river_scan.gif)
 
-*An orange scan line sweeps 26 cross sections. Measured surface velocity goes
-in; the inferred riverbed fills in behind it. The right-hand panels show that
-section's input velocity and output bed. The surveyed bed appears at the two
-ends — the only places it was measured.*
+## The inverse problem
 
-## The problem
+Many measurement problems have the same shape. A field you care about is buried
+inside a PDE and cannot be observed directly; what you *can* observe is a
+downstream consequence of it, on a boundary, sparsely. Recovering the field
+means inverting the PDE.
 
-Knowing the shape of a riverbed matters for flood modelling, navigation and
-habitat work, but measuring it means putting a boat with sonar on the water,
-section by section. The water *surface*, by contrast, is easy to observe — from
-a drone, from a camera on a bridge, from an existing hydraulic model.
+This repository is one instance of that: the unknown is the bed elevation of a
+channel, and the observable is the velocity of the fluid at the free surface.
+The same structure appears in seismic imaging — see the companion repositories
+below, where the unknown is a wave-speed model and the observable is a
+seismogram at the surface.
 
-Surface velocity and bed shape are linked by the flow physics. So rather than
-survey the bed, solve for it: pose the depth as an unknown, and find the depth
-profile whose implied flow reproduces the velocity that was actually observed.
+## The method
 
-## The approach
+Two ingredients, both reusable across the applications:
 
-Depth along a cross section, `H(s)`, is represented by a small coordinate
-network rather than a grid of values — the same implicit-representation idea as
-the other projects here, applied to a river section instead of a seismic model.
-The network is trained so that the flow it implies satisfies the depth-averaged
-momentum balance (a Shiono–Knight-type lateral distribution model) while
-matching the observed surface velocity.
+**1. The unknown is a network, not a grid.** The field is written as a small
+coordinate network `x -> m(x)` and the *weights* are the optimisation
+variables. This regularises by construction — the network cannot represent
+grid-scale noise — and decouples the number of unknowns from the mesh.
 
-Constraints enter as a ladder, and the ordering is the interesting part:
+**2. The PDE is the loss.** Rather than fit the field to a reference, the
+residual of the governing equation is minimised alongside the data misfit, so
+the recovered field is one the physics admits, not merely one that interpolates
+the measurements.
 
-| constraint | what it pins down |
+Here the governing relation is a depth-averaged momentum balance of
+Shiono–Knight type; in the seismic repositories it is the acoustic or elastic
+wave equation, and the gradient comes from an adjoint-state solve instead of
+autodiff. The outer structure is identical.
+
+## Why the problem is hard, and what fixes it
+
+The inverse problem is **ill-posed**: the physics alone does not determine the
+answer. The interesting result here is how little extra information is needed
+to close it.
+
+| constraint added | what it determines |
 |---|---|
-| physics only | shape, but not the overall scale |
-| \+ total discharge | the scale |
-| \+ a depth sounding or two | the remaining ambiguity |
+| PDE residual only | the shape of the field, but not its scale |
+| \+ one integral quantity (total flux) | the scale |
+| \+ one or two point measurements | the residual ambiguity |
 
-Physics alone does not determine the bed. Adding the discharge fixes the
-magnitude; a couple of point soundings remove what is left. That progression is
-the core result, and it is why a handful of measurements can replace a full
-survey.
+So a handful of measurements substitutes for a dense survey. That ratio —
+sparse constraints in, full field out — is what makes the approach worth
+something operationally.
 
-## Validation
+## Validation strategy
 
-The method is checked three ways: against a HEC-RAS hydraulic model at surveyed
-cross sections; across two different discharges, where the same bed must come
-out of both; and across three independent velocity sources (HEC-RAS, PIV from
-imagery, and FlowHatch), where the answer should not depend on which one is
-used.
+Three independent checks, of the kind an inverse solution needs before anyone
+should trust it:
+
+- **Against a conventional forward model**, at locations where the true field
+  was surveyed.
+- **Across two different operating conditions**, where the recovered field is
+  physically the same object and must come out the same both times.
+- **Across three independent observation sources**, where the answer must not
+  depend on which instrument produced the input.
 
 ## Status
 
-This is a **field-data application from work in preparation**. The animation
-here was made for the web from published-format result CSVs. The manuscript
-figures — the validation panels, the constraint ladder on real sections, the
-uncertainty band — are held back until the paper is out, and will be added
-then.
+The animation here was rendered for the web from result files. The quantitative
+figures belong to a manuscript in preparation and are held back until it is
+published; they will be added then.
 
-`code/make_gifs.py` renders the animation from the result CSVs. The CSVs
-themselves are not in this repository.
+`code/make_gifs.py` renders the animation. Its input CSVs are not in this
+repository.
 
-## Context
+## Companion repositories — same method, different PDE
 
-Part of the SKM-PINN work at the NDSU ICE Lab on the Buffalo River, North
-Dakota. Companion projects using the same implicit-representation idea for
-seismic inversion:
-
-- [implicit-elastic-fwi](https://github.com/anhle156/implicit-elastic-fwi) — elastic full-waveform inversion from a random start
-- [implicit-acoustic-fwi](https://github.com/anhle156/implicit-acoustic-fwi) — the acoustic predecessor
+| | unknown field | governing PDE | gradient |
+|---|---|---|---|
+| **this repo** | bed elevation | depth-averaged momentum | autodiff |
+| [implicit-elastic-fwi](https://github.com/anhle156/implicit-elastic-fwi) | vp, vs, rho | elastic wave equation | hand-written adjoint |
+| [implicit-acoustic-fwi](https://github.com/anhle156/implicit-acoustic-fwi) | vp | acoustic wave equation | adjoint-state |
 
 ---
 
