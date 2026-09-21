@@ -4,7 +4,7 @@
 observations — by representing the field as a coordinate network and training
 it so the physics it implies reproduces what was actually measured.**
 
-![sweeping 26 cross sections](animations/river_scan.gif)
+![sweeping 26 cross sections](animations/section_scan.gif)
 
 ## The inverse problem
 

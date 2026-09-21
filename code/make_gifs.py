@@ -1,7 +1,7 @@
 """Build the gallery animations from existing result CSVs (no training, no GPU).
 
     python make_gifs.py            # both
-    python make_gifs.py scan       # river_scan.gif only
+    python make_gifs.py scan       # section_scan.gif only
     python make_gifs.py ladder     # constraint_ladder.gif only
 
 Axes are fixed across frames so only the data moves.
@@ -48,7 +48,7 @@ def smoothstep(t):
 # --------------------------------------------------------------------------- #
 # 1. River scan: sweep the 26 inverted cross sections from JS1 to JS2
 # --------------------------------------------------------------------------- #
-def river_scan(sub=3, fps=10, hold=15):
+def section_scan(sub=3, fps=10, hold=15):
     d = pd.read_csv(SCAN_CSV)
     cs = sorted(d.cs.unique())
     grid = lambda col: np.stack([d.loc[d.cs == c, col].to_numpy() for c in cs])
@@ -123,7 +123,7 @@ def river_scan(sub=3, fps=10, hold=15):
         ax_z.legend(loc="lower right", frameon=False, fontsize=9, labelcolor=INK2)
 
     anim = FuncAnimation(fig, draw, frames=len(ks), interval=1000 / fps)
-    dst = OUT / "river_scan.gif"
+    dst = OUT / "section_scan.gif"
     anim.save(dst, writer=PillowWriter(fps=fps))
     plt.close(fig)
     print(f"{dst.name}: {len(ks)} frames, {dst.stat().st_size / 1e6:.1f} MB")
@@ -206,6 +206,6 @@ if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
     if which in ("all", "scan"):
-        river_scan()
+        section_scan()
     if which in ("all", "ladder"):
         constraint_ladder()
